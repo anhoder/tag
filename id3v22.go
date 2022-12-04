@@ -22,6 +22,8 @@ type ID3v22 struct {
 	Marker string // Always
 	Length int
 	Frames []ID3v22Frame
+
+	dataSource io.ReadSeekCloser
 }
 
 func (id3v2 *ID3v22) GetAllTagNames() []string {
@@ -386,8 +388,10 @@ func (id3v2 *ID3v22) Save(input io.WriteSeeker) error {
 }
 
 // nolint:gocyclo
-func ReadID3v22(input io.ReadSeeker) (*ID3v22, error) {
-	header := ID3v22{}
+func ReadID3v22(input io.ReadSeekCloser) (*ID3v22, error) {
+	header := ID3v22{
+		dataSource: input,
+	}
 
 	if input == nil {
 		return nil, ErrEmptyFile
@@ -515,4 +519,8 @@ func (id3v2 *ID3v22) GetBytes(name string) ([]byte, error) {
 		}
 	}
 	return nil, ErrTagNotFound
+}
+
+func (id3v2 *ID3v22) Close() error {
+	return id3v2.dataSource.Close()
 }

@@ -8,7 +8,6 @@ import (
 	"image/jpeg"
 	"image/png"
 	"io"
-	"io/ioutil"
 	"os"
 	"strconv"
 	"strings"
@@ -58,7 +57,8 @@ type ID3v23 struct {
 	Length     int
 	Frames     []ID3v23Frame
 
-	Data []byte
+	dataStartPos int64
+	dataSource   io.ReadSeekCloser
 }
 
 func (id3v2 *ID3v23) GetAllTagNames() []string {
@@ -74,7 +74,9 @@ func (id3v2 *ID3v23) GetVersion() Version {
 }
 
 func (id3v2 *ID3v23) GetFileData() []byte {
-	return id3v2.Data
+	_, _ = id3v2.dataSource.Seek(id3v2.dataStartPos, io.SeekStart)
+	data, _ := io.ReadAll(id3v2.dataSource)
+	return data
 }
 
 func (id3v2 *ID3v23) GetTitle() (string, error) {
@@ -446,8 +448,10 @@ func (id3v2 *ID3v23) Save(input io.WriteSeeker) error {
 	}
 
 	// write data
-	_, err = input.Write(id3v2.Data)
-	if err != nil {
+	if _, err = id3v2.dataSource.Seek(id3v2.dataStartPos, io.SeekStart); err != nil {
+		return err
+	}
+	if _, err = io.Copy(input, id3v2.dataSource); err != nil {
 		return err
 	}
 	return nil
@@ -552,8 +556,10 @@ func checkID3v23(input io.ReadSeeker) bool {
 }
 
 // nolint:funlen
-func ReadID3v23(input io.ReadSeeker) (*ID3v23, error) {
-	header := ID3v23{}
+func ReadID3v23(input io.ReadSeekCloser) (*ID3v23, error) {
+	header := ID3v23{
+		dataSource: input,
+	}
 	if input == nil {
 		return nil, ErrEmptyFile
 	}
@@ -642,8 +648,7 @@ func ReadID3v23(input io.ReadSeeker) (*ID3v23, error) {
 		return nil, errors.New("error extended frames")
 	}
 
-	// file data
-	header.Data, err = ioutil.ReadAll(input)
+	header.dataStartPos, err = input.Seek(0, io.SeekCurrent)
 	if err != nil {
 		return nil, err
 	}
@@ -864,4 +869,8 @@ func (id3v2 *ID3v23) GetIntTXXX(name string) (int, error) {
 		return 0, err
 	}
 	return strconv.Atoi(str)
+}
+
+func (id3v2 *ID3v23) Close() error {
+	return id3v2.dataSource.Close()
 }

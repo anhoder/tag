@@ -17,6 +17,7 @@ func TestId3v1Save(t *testing.T) {
 	if err != nil {
 		return
 	}
+	defer id3v1.Close()
 
 	err = id3v1.SaveFile("id3v1.save.mp3")
 	asrt.NoError(err, "save")

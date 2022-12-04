@@ -16,6 +16,7 @@ func TestMp4Read(t *testing.T) {
 	if err != nil {
 		return
 	}
+	defer mp4.Close()
 
 	title, err := mp4.GetTitle()
 	asrt.NoError(err)

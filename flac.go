@@ -21,7 +21,8 @@ type FLAC struct {
 	Vendor string
 	Tags   map[string]string
 
-	Data []byte
+	dataStartPos int64
+	dataSource   io.ReadSeekCloser
 }
 
 func (flac *FLAC) GetAllTagNames() []string {
@@ -37,7 +38,9 @@ func (flac *FLAC) GetVersion() Version {
 }
 
 func (flac *FLAC) GetFileData() []byte {
-	return flac.Data
+	_, _ = flac.dataSource.Seek(flac.dataStartPos, io.SeekStart)
+	data, _ := io.ReadAll(flac.dataSource)
+	return data
 }
 
 func (flac *FLAC) GetTitle() (string, error) {
@@ -448,12 +451,19 @@ func (flac *FLAC) Save(input io.WriteSeeker) error {
 			return err
 		}
 	}
-	if _, err := input.Write(flac.Data); err != nil {
+
+	if _, err := flac.dataSource.Seek(flac.dataStartPos, io.SeekStart); err != nil {
+		return err
+	}
+	if _, err := io.Copy(input, flac.dataSource); err != nil {
 		return err
 	}
 	return nil
 }
 
+func (flac *FLAC) Close() error {
+	return flac.dataSource.Close()
+}
 func checkFLAC(input io.ReadSeeker) bool {
 	data, err := seekAndRead(input, 0, io.SeekStart, 4)
 	if err != nil {
@@ -471,6 +481,7 @@ type FlacMetadataBlockType byte
 
 /*
 BLOCK_TYPE:
+
 	0 : STREAMINFO
 	1 : PADDING
 	2 : APPLICATION
@@ -501,9 +512,10 @@ type FlacMetadataBlock struct {
 	Data   []byte
 }
 
-func ReadFLAC(input io.ReadSeeker) (*FLAC, error) {
+func ReadFLAC(input io.ReadSeekCloser) (*FLAC, error) {
 	flac := FLAC{
-		Tags: map[string]string{},
+		Tags:       map[string]string{},
+		dataSource: input,
 	}
 
 	// FLAC identifier
@@ -549,8 +561,7 @@ func ReadFLAC(input io.ReadSeeker) (*FLAC, error) {
 		}
 	}
 
-	// Read all remaining file data into the Data slice
-	flac.Data, err = ioutil.ReadAll(input)
+	flac.dataStartPos, err = input.Seek(0, io.SeekCurrent)
 	if err != nil {
 		return nil, err
 	}
@@ -628,17 +639,21 @@ func (flac *FLAC) GetVorbisComment(key string) (string, error) {
 
 // The comment header is decoded as follows:
 //
-//	1) [vendor_length] = read an unsigned integer of 32 bits
-//	2) [vendor_string] = read a UTF-8 vector as [vendor_length] octets
-//	3) [user_comment_list_length] = read an unsigned integer of 32 bits
-//	4) iterate [user_comment_list_length] times {
+//  1. [vendor_length] = read an unsigned integer of 32 bits
 //
-//		5) [length] = read an unsigned integer of 32 bits
-//		6) this iteration's user comment = read a UTF-8 vector as [length] octets
+//  2. [vendor_string] = read a UTF-8 vector as [vendor_length] octets
 //
-//	}
+//  3. [user_comment_list_length] = read an unsigned integer of 32 bits
 //
-//	7) [framing_bit] = read a single bit as boolean
+//  4. iterate [user_comment_list_length] times {
+//
+//  5. [length] = read an unsigned integer of 32 bits
+//
+//  6. this iteration's user comment = read a UTF-8 vector as [length] octets
+//
+//     }
+//
+//  7. [framing_bit] = read a single bit as boolean
 func readVorbisComments(input io.Reader) ([]VorbisComment, string, error) {
 	result := []VorbisComment{}
 

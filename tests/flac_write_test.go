@@ -18,6 +18,7 @@ func TestFLACWrite(t *testing.T) {
 	if err != nil {
 		return
 	}
+	defer flac.Close()
 
 	out, err := ioutil.TempFile("", "flacTst.flac")
 	asrt.NoError(err)

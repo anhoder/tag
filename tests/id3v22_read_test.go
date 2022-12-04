@@ -17,6 +17,7 @@ func TestId3v22Read(t *testing.T) {
 	if err != nil {
 		return
 	}
+	defer id3.Close()
 
 	asrt.Equal("*tag.ID3v22", reflect.TypeOf(id3).String())
 

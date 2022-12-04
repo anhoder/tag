@@ -69,6 +69,8 @@ var atoms = map[string]string{
 
 type MP4 struct {
 	data map[string]interface{}
+
+	dataSource io.ReadSeekCloser
 }
 
 func (MP4) GetAllTagNames() []string {
@@ -414,8 +416,8 @@ func checkMp4(input io.ReadSeeker) bool {
 	return false
 }
 
-func ReadMp4(input io.ReadSeeker) (*MP4, error) {
-	header := MP4{}
+func ReadMp4(input io.ReadSeekCloser) (*MP4, error) {
+	header := MP4{dataSource: input}
 	header.data = map[string]interface{}{}
 
 	// Seek to file start
@@ -500,4 +502,8 @@ func parseAtomData(bytes []byte, atomName string, mp4 *MP4) {
 		mp4.data[atomName] = int(bytes[19:20][0])
 		mp4.data[atomName+"_TOTAL"] = int(bytes[21:22][0])
 	}
+}
+
+func (mp4 *MP4) Close() error {
+	return mp4.dataSource.Close()
 }

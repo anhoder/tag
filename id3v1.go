@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"image"
 	"io"
-	"io/ioutil"
 	"os"
 	"strconv"
 	"time"
@@ -24,11 +23,14 @@ type ID3v1 struct {
 	Genre    Genre  // length 1. Index in a list of genres, or 255
 
 	// another file data
-	Data []byte
+	dataLen    int64
+	dataSource io.ReadSeekCloser
 }
 
 func (id3v1 *ID3v1) GetFileData() []byte {
-	return id3v1.Data
+	_, _ = id3v1.dataSource.Seek(0, io.SeekStart)
+	data, _ := io.ReadAll(io.LimitReader(id3v1.dataSource, id3v1.dataLen))
+	return data
 }
 
 func (id3v1 *ID3v1) String() string {
@@ -55,8 +57,10 @@ func checkID3v1(input io.ReadSeeker) bool {
 	return true
 }
 
-func ReadID3v1(input io.ReadSeeker) (*ID3v1, error) {
-	header := ID3v1{}
+func ReadID3v1(input io.ReadSeekCloser) (*ID3v1, error) {
+	header := ID3v1{
+		dataSource: input,
+	}
 
 	// 128 byte - Header size
 	headerByte, err := seekAndRead(input, -id3v1SizeHeader, io.SeekEnd, id3v1SizeHeader)
@@ -104,17 +108,10 @@ func ReadID3v1(input io.ReadSeeker) (*ID3v1, error) {
 	header.Genre = Genre(headerByte[127])
 
 	// Read another file data
-	_, err = input.Seek(0, io.SeekStart)
+	header.dataLen, err = input.Seek(-id3v1SizeHeader, io.SeekEnd)
 	if err != nil {
 		return nil, err
 	}
-
-	data, err := ioutil.ReadAll(input)
-	if err != nil {
-		return nil, err
-	}
-	// without header
-	header.Data = data[:len(data)-128]
 
 	return &header, nil
 }
@@ -139,7 +136,8 @@ func (id3v1 *ID3v1) SaveFile(path string) error {
 }
 
 func (id3v1 *ID3v1) Save(input io.WriteSeeker) error {
-	_, err := input.Write(id3v1.Data)
+	_, _ = id3v1.dataSource.Seek(0, io.SeekStart)
+	_, err := io.CopyN(input, id3v1.dataSource, id3v1.dataLen)
 	if err != nil {
 		return err
 	}
@@ -547,4 +545,8 @@ func (id3v1 *ID3v1) DeleteTrackNumber() error {
 
 func (id3v1 *ID3v1) DeletePicture() error {
 	return ErrUnsupportedTag
+}
+
+func (id3v1 *ID3v1) Close() error {
+	return id3v1.dataSource.Close()
 }

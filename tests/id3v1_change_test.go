@@ -16,6 +16,7 @@ func TestId3v1Change(t *testing.T) {
 	if err != nil {
 		return
 	}
+	defer id3v1.Close()
 
 	err = id3v1.SetTitle("My new")
 	asrt.NoError(err)

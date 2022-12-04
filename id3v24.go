@@ -8,7 +8,6 @@ import (
 	"image/jpeg"
 	"image/png"
 	"io"
-	"io/ioutil"
 	"os"
 	"strconv"
 	"strings"
@@ -58,7 +57,8 @@ type ID3v24 struct {
 	Length     int
 	Frames     []ID3v24Frame
 
-	Data []byte
+	dataStartPos int64
+	dataSource   io.ReadSeekCloser
 }
 
 type AttachedPicture struct {
@@ -81,7 +81,9 @@ func (id3v2 *ID3v24) GetVersion() Version {
 }
 
 func (id3v2 *ID3v24) GetFileData() []byte {
-	return id3v2.Data
+	_, _ = id3v2.dataSource.Seek(id3v2.dataStartPos, io.SeekStart)
+	data, _ := io.ReadAll(id3v2.dataSource)
+	return data
 }
 
 func (id3v2 *ID3v24) GetTitle() (string, error) {
@@ -454,8 +456,11 @@ func (id3v2 *ID3v24) Save(input io.WriteSeeker) error {
 	}
 
 	// write data
-	_, err = input.Write(id3v2.Data)
-	if err != nil {
+	// write data
+	if _, err = id3v2.dataSource.Seek(id3v2.dataStartPos, io.SeekStart); err != nil {
+		return err
+	}
+	if _, err = io.Copy(input, id3v2.dataSource); err != nil {
 		return err
 	}
 	return nil
@@ -559,8 +564,10 @@ func checkID3v24(input io.ReadSeeker) bool {
 	return versionByte == 4
 }
 
-func ReadID3v24(input io.ReadSeeker) (*ID3v24, error) {
-	header := ID3v24{}
+func ReadID3v24(input io.ReadSeekCloser) (*ID3v24, error) {
+	header := ID3v24{
+		dataSource: input,
+	}
 	if input == nil {
 		return nil, ErrEmptyFile
 	}
@@ -639,7 +646,7 @@ func ReadID3v24(input io.ReadSeeker) (*ID3v24, error) {
 	}
 
 	// file data
-	header.Data, err = ioutil.ReadAll(input)
+	header.dataStartPos, err = input.Seek(0, io.SeekCurrent)
 	if err != nil {
 		return nil, err
 	}
@@ -857,4 +864,8 @@ func (id3v2 *ID3v24) GetIntTXXX(name string) (int, error) {
 		return 0, err
 	}
 	return strconv.Atoi(str)
+}
+
+func (id3v2 *ID3v24) Close() error {
+	return id3v2.dataSource.Close()
 }

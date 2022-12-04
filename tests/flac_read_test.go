@@ -17,6 +17,7 @@ func TestFLACRead(t *testing.T) {
 	if err != nil {
 		return
 	}
+	defer flac.Close()
 
 	title, err := flac.GetTitle()
 	asrt.NoError(err)

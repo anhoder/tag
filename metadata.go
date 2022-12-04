@@ -110,4 +110,5 @@ type Metadata interface {
 	SetMetadata
 	DeleteMetadata
 	SaveMetadata
+	io.Closer
 }

@@ -15,6 +15,7 @@ func TestId3v24Read(t *testing.T) {
 	if err != nil {
 		return
 	}
+	defer id3.Close()
 
 	title, err := id3.GetTitle()
 	asrt.NoError(err)

@@ -10,12 +10,11 @@ func ReadFile(path string) (Metadata, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
 
 	return Read(file)
 }
 
-func Read(input io.ReadSeeker) (Metadata, error) {
+func Read(input io.ReadSeekCloser) (Metadata, error) {
 	version := CheckVersion(input)
 	switch version {
 	case VersionID3v1:
