@@ -287,12 +287,22 @@ func (flac *FLAC) SetPicture(picture image.Image) error {
 
 func (flac *FLAC) SetFlacPicture(pic *flacpicture.MetadataBlockPicture) error {
 	metadata := pic.Marshal()
+	var matched bool
 	for _, val := range flac.Blocks {
 		if val.Type == FlacPicture {
 			val.Size = len(metadata.Data)
 			val.Data = metadata.Data
+			matched = true
 		}
 	}
+	if !matched {
+		flac.Blocks = append(flac.Blocks, &FlacMetadataBlock{
+			Type: FlacPicture,
+			Size: len(metadata.Data),
+			Data: metadata.Data,
+		})
+	}
+
 	return nil
 }
 
