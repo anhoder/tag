@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/go-flac/flacpicture"
 )
 
 type FLAC struct {
@@ -278,6 +280,17 @@ func (flac *FLAC) SetPicture(picture image.Image) error {
 		if val.Type == FlacPicture {
 			val.Size = size
 			val.Data = data
+		}
+	}
+	return nil
+}
+
+func (flac *FLAC) SetFlacPicture(pic *flacpicture.MetadataBlockPicture) error {
+	metadata := pic.Marshal()
+	for _, val := range flac.Blocks {
+		if val.Type == FlacPicture {
+			val.Size = len(metadata.Data)
+			val.Data = metadata.Data
 		}
 	}
 	return nil

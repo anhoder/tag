@@ -2,11 +2,12 @@ package tests
 
 import (
 	"bytes"
-	"github.com/frolovo22/tag"
-	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"os"
 	"testing"
+
+	"github.com/frolovo22/tag"
+	"github.com/stretchr/testify/assert"
 )
 
 // nolint:funlen,gocyclo
@@ -19,6 +20,18 @@ func TestFLACWrite(t *testing.T) {
 		return
 	}
 	defer flac.Close()
+
+	//if f, ok := flac.(*tag.FLAC); ok {
+	//	png, err := os.Open("idv22.jpg")
+	//	asrt.NoError(err, "open flac.png")
+	//	data, err := io.ReadAll(png)
+	//	asrt.NoError(err, "read flac.png")
+	//	img, err := flacpicture.NewFromImageData(flacpicture.PictureTypeFrontCover, "cover", data, "image/jpeg")
+	//	asrt.NoError(err, "new image data")
+	//	err = f.SetFlacPicture(img)
+	//	asrt.NoError(err, "set flac picture")
+	//	flac.SaveFile("BeeMoved2.flac")
+	//}
 
 	out, err := ioutil.TempFile("", "flacTst.flac")
 	asrt.NoError(err)
